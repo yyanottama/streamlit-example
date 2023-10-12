@@ -1,38 +1,46 @@
-from collections import namedtuple
-import altair as alt
-import math
-import pandas as pd
-import streamlit as st
+"""Loads Microsoft Excel files."""
+from typing import Any, List
 
-"""
-# Welcome to Streamlit!
-
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:
-
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
-
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+from langchain.document_loaders.unstructured import (
+    UnstructuredFileLoader,
+    validate_unstructured_version,
+)
 
 
-with st.echo(code_location='below'):
-    total_points = st.slider("Number of points in spiral", 1, 5000, 2000)
-    num_turns = st.slider("Number of turns in spiral", 1, 100, 9)
+class UnstructuredExcelLoader(UnstructuredFileLoader):
+    """Load Microsoft Excel files using `Unstructured`.
 
-    Point = namedtuple('Point', 'x y')
-    data = []
+    Like other
+    Unstructured loaders, UnstructuredExcelLoader can be used in both
+    "single" and "elements" mode. If you use the loader in "elements"
+    mode, each sheet in the Excel file will be a an Unstructured Table
+    element. If you use the loader in "elements" mode, an
+    HTML representation of the table will be available in the
+    "text_as_html" key in the document metadata.
 
-    points_per_turn = total_points / num_turns
+    Examples
+    --------
+    from langchain.document_loaders.excel import UnstructuredExcelLoader
 
-    for curr_point_num in range(total_points):
-        curr_turn, i = divmod(curr_point_num, points_per_turn)
-        angle = (curr_turn + 1) * 2 * math.pi * i / points_per_turn
-        radius = curr_point_num / total_points
-        x = radius * math.cos(angle)
-        y = radius * math.sin(angle)
-        data.append(Point(x, y))
+    loader = UnstructuredExcelLoader("stanley-cups.xlsd", mode="elements")
+    docs = loader.load()
+    """
 
-    st.altair_chart(alt.Chart(pd.DataFrame(data), height=500, width=500)
-        .mark_circle(color='#0068c9', opacity=0.5)
-        .encode(x='x:Q', y='y:Q'))
+    def __init__(
+        self, file_path: str, mode: str = "single", **unstructured_kwargs: Any
+    ):
+        """
+
+        Args:
+            file_path: The path to the Microsoft Excel file.
+            mode: The mode to use when partitioning the file. See unstructured docs
+              for more info. Optional. Defaults to "single".
+            **unstructured_kwargs: Keyword arguments to pass to unstructured.
+        """
+        validate_unstructured_version(min_unstructured_version="0.6.7")
+        super().__init__(file_path=file_path, mode=mode, **unstructured_kwargs)
+
+    def _get_elements(self) -> List:
+        from unstructured.partition.xlsx import partition_xlsx
+
+        return partition_xlsx(filename=self.file_path, **self.unstructured_kwargs)
